@@ -1,614 +1,568 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Shield, Zap, Target, AlertTriangle, CheckCircle, BarChart3, Gamepad2, Trophy, Medal, Download, Search, Filter } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛤️ The Privacy Trail</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            min-height: 100vh;
+        }
+        .game-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .score-meter {
+            transition: all 0.3s ease;
+        }
+        .leaderboard-item:hover {
+            background-color: #f9fafb;
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="bg-white rounded-lg shadow-xl p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-800 mb-2">🛤️ The Privacy Trail</h1>
+                <p class="text-lg text-gray-600 italic">Survive the Trail. Protect the Trust. Avoid Dying of a Data Breach.</p>
+                
+                <!-- View Toggle -->
+                <div class="flex justify-center mt-6">
+                    <div class="bg-gray-200 p-1 rounded-lg">
+                        <button id="gameBtn" class="px-4 py-2 rounded-md font-medium transition-all bg-blue-500 text-white shadow-md">
+                            <i data-lucide="gamepad-2" class="w-4 h-4 inline mr-2"></i>
+                            Game
+                        </button>
+                        <button id="dashboardBtn" class="px-4 py-2 rounded-md font-medium transition-all text-gray-600 hover:text-gray-800">
+                            <i data-lucide="bar-chart-3" class="w-4 h-4 inline mr-2"></i>
+                            Dashboard (<span id="teamCount">0</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-const PrivacyTrailScorecard = () => {
-  const [currentView, setCurrentView] = useState('game'); // 'game' or 'dashboard'
-  const [teamName, setTeamName] = useState('');
-  const [isTeamRegistered, setIsTeamRegistered] = useState(false);
-  const [teams, setTeams] = useState([]); // Store all teams
-  const [scores, setScores] = useState({
-    trust: 10,
-    compliance: 10,
-    velocity: 10
-  });
-  
-  // Dashboard filters and search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'completed', 'failed'
-  const [sortBy, setSortBy] = useState('score'); // 'score', 'name', 'progress'
-  
-  const [roundChoices, setRoundChoices] = useState({
-    1: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-    2: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-    3: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-    4: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-    5: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' }
-  });
+            <!-- Game View -->
+            <div id="gameView">
+                <!-- Team Registration -->
+                <div id="teamRegistration" class="mb-8">
+                    <label class="block text-lg font-semibold text-gray-700 mb-2">
+                        <i data-lucide="users" class="inline w-5 h-5 mr-2"></i>
+                        Team Name:
+                    </label>
+                    <div class="flex gap-3">
+                        <input type="text" id="teamNameInput" class="flex-1 p-3 border-2 border-gray-300 rounded-lg text-lg font-medium" placeholder="Enter your team name...">
+                        <button id="registerBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                            Start Game
+                        </button>
+                    </div>
+                </div>
 
-  const scenarios = {
-    1: {
-      title: "The Great Data Grab",
-      description: "Your team wants to collect as much user data as possible for future personalization",
-      options: {
-        A: { label: "Collect Everything", trust: -3, compliance: -3, velocity: +3 },
-        B: { label: "Collect what you need", trust: +2, compliance: +3, velocity: -1 },
-        C: { label: "Delay launch for data mapping", trust: +3, compliance: +3, velocity: -3 }
-      }
-    },
-    2: {
-      title: "River of Vendors",
-      description: "Your analytics vendor was fined for shady practices. No DPA signed. Legal is OOO.",
-      options: {
-        A: { label: "Proceed", trust: -3, compliance: -5, velocity: +2 },
-        B: { label: "Choose certified vendor", trust: +3, compliance: +4, velocity: -3 },
-        C: { label: "Wait for legal", trust: -1, compliance: -2, velocity: 0 }
-      }
-    },
-    3: {
-      title: "UX Snakebite",
-      description: "Marketing requests pop-up for birthday, zip code, shopping habits before user sees value",
-      options: {
-        A: { label: "Ship pop-up now", trust: -4, compliance: -3, velocity: +2 },
-        B: { label: "Delay collection post-value", trust: +2, compliance: +2, velocity: -1 },
-        C: { label: "Redesign UX with privacy principles", trust: +3, compliance: +3, velocity: -2 }
-      }
-    },
-    4: {
-      title: "Surveillance Storm",
-      description: "Privacy orgs accuse your product of surveillance. A regulator tweets at you.",
-      options: {
-        A: { label: "Deny wrongdoing", trust: -5, compliance: -4, velocity: +2 },
-        B: { label: "Apologize, tweak settings", trust: +1, compliance: +2, velocity: 0 },
-        C: { label: "Full transparency + opt-outs", trust: +4, compliance: +4, velocity: -2 }
-      }
-    },
-    5: {
-      title: "Global Expansion Canyon",
-      description: "Expanding to EU, LATAM, APAC with different privacy laws. No localized settings.",
-      options: {
-        A: { label: "Use U.S model globally", trust: -4, compliance: -5, velocity: +3 },
-        B: { label: "Delay to localize", trust: +3, compliance: +5, velocity: -3 },
-        C: { label: "Launch in low-regulation markets first", trust: -1, compliance: -2, velocity: +2 }
-      }
-    }
-  };
+                <!-- Game Content -->
+                <div id="gameContent" class="hidden">
+                    <!-- Current Team Display -->
+                    <div class="bg-gradient-to-r from-blue-100 to-purple-100 p-4 rounded-lg mb-6 border-2 border-blue-200">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800">Team: <span id="currentTeamName"></span></h2>
+                            </div>
+                            <button id="changeTeamBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                                Change Team
+                            </button>
+                        </div>
+                    </div>
 
-  // Save team data whenever scores or choices change (only if team is registered)
-  useEffect(() => {
-    if (teamName && isTeamRegistered) {
-      saveTeamData();
-    }
-  }, [scores, roundChoices, teamName, isTeamRegistered]);
+                    <!-- Score Display -->
+                    <div class="grid grid-cols-3 gap-6 mb-8">
+                        <div class="text-center p-6 bg-blue-50 rounded-lg shadow-md">
+                            <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 text-blue-600"></i>
+                            <h3 class="text-lg font-semibold text-gray-700">Trust</h3>
+                            <div id="trustScore" class="text-3xl font-bold text-green-600">10</div>
+                            <div id="trustStatus" class="text-sm text-gray-500">HEALTHY</div>
+                        </div>
+                        <div class="text-center p-6 bg-green-50 rounded-lg shadow-md">
+                            <i data-lucide="check-circle" class="w-8 h-8 mx-auto mb-2 text-green-600"></i>
+                            <h3 class="text-lg font-semibold text-gray-700">Compliance</h3>
+                            <div id="complianceScore" class="text-3xl font-bold text-green-600">10</div>
+                            <div id="complianceStatus" class="text-sm text-gray-500">HEALTHY</div>
+                        </div>
+                        <div class="text-center p-6 bg-yellow-50 rounded-lg shadow-md">
+                            <i data-lucide="zap" class="w-8 h-8 mx-auto mb-2 text-yellow-600"></i>
+                            <h3 class="text-lg font-semibold text-gray-700">Velocity</h3>
+                            <div id="velocityScore" class="text-3xl font-bold text-green-600">10</div>
+                            <div id="velocityStatus" class="text-sm text-gray-500">HEALTHY</div>
+                        </div>
+                    </div>
 
-  const registerTeam = () => {
-    const trimmedName = teamName.trim();
-    if (!trimmedName) {
-      alert('Please enter a team name');
-      return;
-    }
-    
-    const existingTeam = teams.find(team => team.name.toLowerCase() === trimmedName.toLowerCase());
-    if (existingTeam) {
-      const confirmOverwrite = window.confirm(
-        `Team "${trimmedName}" already exists. Do you want to continue playing as this team?`
-      );
-      if (!confirmOverwrite) {
-        return;
-      }
-      // Load existing team data
-      setScores(existingTeam.scores);
-      setRoundChoices(existingTeam.roundChoices);
-    }
-    
-    setTeamName(trimmedName);
-    setIsTeamRegistered(true);
-  };
+                    <!-- Game Status -->
+                    <div id="gameStatus" class="hidden mb-6 p-4 rounded-lg text-center font-bold text-lg"></div>
 
-  const changeTeam = () => {
-    setIsTeamRegistered(false);
-    setTeamName('');
-    setScores({ trust: 10, compliance: 10, velocity: 10 });
-    setRoundChoices({
-      1: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      2: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      3: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      4: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      5: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' }
-    });
-  };
+                    <!-- Scenarios -->
+                    <div id="scenarios" class="space-y-8">
+                        <!-- Scenarios will be dynamically generated -->
+                    </div>
 
-  const saveTeamData = () => {
-    if (!teamName.trim()) return;
-    
-    const teamData = {
-      name: teamName,
-      scores: { ...scores },
-      roundChoices: { ...roundChoices },
-      lastUpdated: new Date().toISOString(),
-      isGameOver: scores.trust <= 0 || scores.compliance <= 0 || scores.velocity <= 0,
-      hasWon: scores.trust > 0 && scores.compliance > 0 && scores.velocity > 0 && 
-        Object.values(roundChoices).every(round => round.choice !== ''),
-      completedRounds: Object.values(roundChoices).filter(round => round.choice !== '').length
-    };
+                    <!-- Reset Button -->
+                    <div class="text-center mt-8">
+                        <button id="resetBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                            🔄 Reset Game
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-    setTeams(prevTeams => {
-      const existingIndex = prevTeams.findIndex(team => team.name === teamName);
-      if (existingIndex >= 0) {
-        const updated = [...prevTeams];
-        updated[existingIndex] = teamData;
-        return updated;
-      } else {
-        return [...prevTeams, teamData];
-      }
-    });
-  };
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="hidden">
+                <div class="bg-gradient-to-r from-purple-100 to-blue-100 p-6 rounded-lg border-2 border-purple-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i data-lucide="bar-chart-3" class="w-8 h-8 mr-3 text-purple-600"></i>
+                            Team Dashboard
+                        </h2>
+                        <div class="text-sm text-gray-600">
+                            <span id="totalTeams">0</span> team(s) registered
+                        </div>
+                    </div>
 
-  const handleChoiceChange = (round, choice) => {
-    const scenario = scenarios[round];
-    const option = scenario.options[choice];
-    
-    const newRoundChoices = {
-      ...roundChoices,
-      [round]: {
-        choice,
-        trust: option.trust,
-        compliance: option.compliance,
-        velocity: option.velocity,
-        notes: roundChoices[round].notes
-      }
-    };
-    
-    setRoundChoices(newRoundChoices);
-    
-    // Recalculate total scores
-    const newScores = { trust: 10, compliance: 10, velocity: 10 };
-    Object.values(newRoundChoices).forEach(round => {
-      newScores.trust += round.trust;
-      newScores.compliance += round.compliance;
-      newScores.velocity += round.velocity;
-    });
-    
-    setScores(newScores);
-  };
+                    <!-- Empty State -->
+                    <div id="emptyDashboard" class="text-center py-8 text-gray-500">
+                        <i data-lucide="users" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
+                        <p>No teams have started playing yet!</p>
+                        <p class="text-sm">Switch to Game view to start playing.</p>
+                    </div>
 
-  const handleNotesChange = (round, notes) => {
-    setRoundChoices({
-      ...roundChoices,
-      [round]: { ...roundChoices[round], notes }
-    });
-  };
+                    <!-- Dashboard Content -->
+                    <div id="dashboardContent" class="hidden">
+                        <!-- Controls -->
+                        <div class="bg-white rounded-lg p-4 mb-6 shadow-md">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div class="relative">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4"></i>
+                                    <input type="text" id="searchInput" placeholder="Search teams..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="all">All Teams</option>
+                                    <option value="active">Active</option>
+                                    <option value="completed">Winners</option>
+                                    <option value="failed">Game Over</option>
+                                </select>
+                                <select id="sortBy" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="score">Sort by Score</option>
+                                    <option value="name">Sort by Name</option>
+                                    <option value="progress">Sort by Progress</option>
+                                </select>
+                                <div class="flex gap-2">
+                                    <button id="exportCSV" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm">
+                                        <i data-lucide="download" class="w-4 h-4 inline mr-1"></i>
+                                        CSV
+                                    </button>
+                                    <button id="exportJSON" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm">
+                                        <i data-lucide="download" class="w-4 h-4 inline mr-1"></i>
+                                        JSON
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
 
-  const resetGame = () => {
-    setScores({ trust: 10, compliance: 10, velocity: 10 });
-    setRoundChoices({
-      1: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      2: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      3: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      4: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
-      5: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' }
-    });
-  };
+                        <!-- Quick Stats -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                                <div id="winnersCount" class="text-2xl font-bold text-green-600">0</div>
+                                <div class="text-sm text-gray-600">Winners</div>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                                <div id="gameOverCount" class="text-2xl font-bold text-red-600">0</div>
+                                <div class="text-sm text-gray-600">Game Over</div>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                                <div id="activeCount" class="text-2xl font-bold text-blue-600">0</div>
+                                <div class="text-sm text-gray-600">In Progress</div>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg shadow-md text-center">
+                                <div id="avgRounds" class="text-2xl font-bold text-purple-600">0</div>
+                                <div class="text-sm text-gray-600">Avg Rounds</div>
+                            </div>
+                        </div>
 
-  const clearAllTeams = () => {
-    const confirmClear = window.confirm('Are you sure you want to clear all team data? This cannot be undone.');
-    if (confirmClear) {
-      setTeams([]);
-    }
-  };
+                        <!-- Leaderboard -->
+                        <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
+                            <div class="bg-gradient-to-r from-yellow-400 to-orange-400 p-4">
+                                <h3 class="text-xl font-bold text-white flex items-center">
+                                    <i data-lucide="trophy" class="w-6 h-6 mr-2"></i>
+                                    Leaderboard
+                                </h3>
+                            </div>
+                            <div id="leaderboard" class="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                                <!-- Leaderboard items will be populated here -->
+                            </div>
+                        </div>
 
-  const exportTeamData = () => {
-    const dataStr = JSON.stringify(teams, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `privacy-trail-teams-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+                        <!-- Clear Teams Button -->
+                        <div class="text-center">
+                            <button id="clearAllBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                                🗑️ Clear All Teams
+                            </button>
+                        </div>
+                    </div>
 
-  const exportCSV = () => {
-    const headers = ['Team Name', 'Total Score', 'Trust', 'Compliance', 'Velocity', 'Completed Rounds', 'Status', 'Last Updated'];
-    const csvData = teams.map(team => [
-      team.name,
-      team.scores.trust + team.scores.compliance + team.scores.velocity,
-      team.scores.trust,
-      team.scores.compliance,
-      team.scores.velocity,
-      team.completedRounds,
-      team.hasWon ? 'Winner' : team.isGameOver ? 'Game Over' : 'In Progress',
-      new Date(team.lastUpdated).toLocaleString()
-    ]);
-    
-    const csvContent = [headers, ...csvData].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `privacy-trail-results-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Filter and sort teams
-  const filteredTeams = teams.filter(team => {
-    const matchesSearch = team.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && !team.hasWon && !team.isGameOver) ||
-      (statusFilter === 'completed' && team.hasWon) ||
-      (statusFilter === 'failed' && team.isGameOver);
-    return matchesSearch && matchesStatus;
-  });
-
-  const sortedTeams = [...filteredTeams].sort((a, b) => {
-    if (sortBy === 'score') {
-      // Winners first
-      if (a.hasWon && !b.hasWon) return -1;
-      if (!a.hasWon && b.hasWon) return 1;
-      
-      // Then by total score
-      const aTotalScore = a.scores.trust + a.scores.compliance + a.scores.velocity;
-      const bTotalScore = b.scores.trust + b.scores.compliance + b.scores.velocity;
-      
-      if (aTotalScore !== bTotalScore) return bTotalScore - aTotalScore;
-      
-      // Then by completed rounds
-      return b.completedRounds - a.completedRounds;
-    } else if (sortBy === 'name') {
-      return a.name.localeCompare(b.name);
-    } else if (sortBy === 'progress') {
-      return b.completedRounds - a.completedRounds;
-    }
-    return 0;
-  });
-
-  const getScoreColor = (score) => {
-    if (score <= 0) return 'text-red-600 font-bold';
-    if (score <= 3) return 'text-orange-500 font-semibold';
-    if (score <= 6) return 'text-yellow-500';
-    return 'text-green-600';
-  };
-
-  const getScoreStatus = (score) => {
-    if (score <= 0) return 'DEAD';
-    if (score <= 3) return 'CRITICAL';
-    if (score <= 6) return 'WARNING';
-    return 'HEALTHY';
-  };
-
-  const isGameOver = scores.trust <= 0 || scores.compliance <= 0 || scores.velocity <= 0;
-  const hasWon = scores.trust > 0 && scores.compliance > 0 && scores.velocity > 0 && 
-    Object.values(roundChoices).every(round => round.choice !== '');
-
-  const renderDashboard = () => (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-purple-100 to-blue-100 p-6 rounded-lg border-2 border-purple-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <BarChart3 className="w-8 h-8 mr-3 text-purple-600" />
-            Team Dashboard
-          </h2>
-          <div className="text-sm text-gray-600">
-            {teams.length} team{teams.length !== 1 ? 's' : ''} registered
-          </div>
+                    <!-- Workshop Instructions -->
+                    <div class="mt-6 text-center text-sm text-gray-600">
+                        <p>💡 <strong>Multi-Team Instructions:</strong></p>
+                        <p>• Each team registers with a unique name and plays independently</p>
+                        <p>• All teams can view this dashboard to see everyone's progress</p>
+                        <p>• The leaderboard updates in real-time as teams make choices</p>
+                        <p>• Up to 50+ teams can play simultaneously!</p>
+                        <p>• Use search and filters to manage large groups</p>
+                        <p>• Export data as CSV or JSON for analysis</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        {teams.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No teams have started playing yet!</p>
-            <p className="text-sm">Switch to Game view to start playing.</p>
-          </div>
-        ) : (
-          <>
-            {/* Controls */}
-            <div className="bg-white rounded-lg p-4 mb-6 shadow-md">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search teams..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                {/* Status Filter */}
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
-                  >
-                    <option value="all">All Teams</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Winners</option>
-                    <option value="failed">Game Over</option>
-                  </select>
-                </div>
-                
-                {/* Sort By */}
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="score">Sort by Score</option>
-                  <option value="name">Sort by Name</option>
-                  <option value="progress">Sort by Progress</option>
-                </select>
-                
-                {/* Export Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={exportCSV}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm"
-                    disabled={teams.length === 0}
-                  >
-                    <Download className="w-4 h-4 inline mr-1" />
-                    CSV
-                  </button>
-                  <button
-                    onClick={exportTeamData}
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-3 rounded-lg transition-colors text-sm"
-                    disabled={teams.length === 0}
-                  >
-                    <Download className="w-4 h-4 inline mr-1" />
-                    JSON
-                  </button>
-                </div>
-              </div>
-              
-              <div className="mt-3 text-sm text-gray-600">
-                Showing {sortedTeams.length} of {teams.length} teams
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-lg shadow-md text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {teams.filter(t => t.hasWon).length}
-                </div>
-                <div className="text-sm text-gray-600">Winners</div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-md text-center">
-                <div className="text-2xl font-bold text-red-600">
-                  {teams.filter(t => t.isGameOver && !t.hasWon).length}
-                </div>
-                <div className="text-sm text-gray-600">Game Over</div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-md text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {teams.filter(t => !t.hasWon && !t.isGameOver).length}
-                </div>
-                <div className="text-sm text-gray-600">In Progress</div>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow-md text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {Math.round(teams.reduce((sum, t) => sum + t.completedRounds, 0) / teams.length * 10) / 10 || 0}
-                </div>
-                <div className="text-sm text-gray-600">Avg Rounds</div>
-              </div>
-            </div>
-
-            {/* Leaderboard */}
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden mb-6">
-              <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-4">
-                <h3 className="text-xl font-bold text-white flex items-center">
-                  <Trophy className="w-6 h-6 mr-2" />
-                  Leaderboard
-                </h3>
-              </div>
-              <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-                {sortedTeams.map((team, index) => (
-                  <div key={team.name} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="mr-4">
-                          {index === 0 && team.hasWon && (
-                            <Trophy className="w-6 h-6 text-yellow-500" />
-                          )}
-                          {index === 1 && (
-                            <Medal className="w-6 h-6 text-gray-400" />
-                          )}
-                          {index === 2 && (
-                            <Medal className="w-6 h-6 text-orange-600" />
-                          )}
-                          {index > 2 && (
-                            <span className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold">
-                              {index + 1}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-lg">{team.name}</h4>
-                          <div className="flex items-center space-x-4 text-sm">
-                            <span>Rounds: {team.completedRounds}/5</span>
-                            {team.hasWon && (
-                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
-                                🎉 WINNER
-                              </span>
-                            )}
-                            {team.isGameOver && !team.hasWon && (
-                              <span className="bg-red-100 text-red-800 px-2 py-1 rounded font-medium">
-                                💀 GAME OVER
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold">
-                          Total: {team.scores.trust + team.scores.compliance + team.scores.velocity}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          T:{team.scores.trust} C:{team.scores.compliance} V:{team.scores.velocity}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Detailed Team Scores - Limited to top 10 */}
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-gray-700">Team Details</h3>
-                <div className="text-sm text-gray-500">
-                  Showing top {Math.min(10, sortedTeams.length)} teams
-                </div>
-              </div>
-            </div>
-            <div className="grid gap-6 max-h-96 overflow-y-auto">
-              {sortedTeams.slice(0, 10).map(team => (
-                <div key={team.name} className="bg-white rounded-lg shadow-lg p-6 border-2 border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-gray-800">{team.name}</h3>
-                    <div className="text-sm text-gray-500">
-                      Updated: {new Date(team.lastUpdated).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg">
-                      <Shield className="w-6 h-6 mx-auto mb-1 text-blue-600" />
-                      <div className="text-sm font-medium text-gray-600">Trust</div>
-                      <div className={`text-2xl font-bold ${getScoreColor(team.scores.trust)}`}>
-                        {team.scores.trust}
-                      </div>
-                    </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg">
-                      <CheckCircle className="w-6 h-6 mx-auto mb-1 text-green-600" />
-                      <div className="text-sm font-medium text-gray-600">Compliance</div>
-                      <div className={`text-2xl font-bold ${getScoreColor(team.scores.compliance)}`}>
-                        {team.scores.compliance}
-                      </div>
-                    </div>
-                    <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                      <Zap className="w-6 h-6 mx-auto mb-1 text-yellow-600" />
-                      <div className="text-sm font-medium text-gray-600">Velocity</div>
-                      <div className={`text-2xl font-bold ${getScoreColor(team.scores.velocity)}`}>
-                        {team.scores.velocity}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Round Progress */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Progress</span>
-                      <span className="text-sm text-gray-500">{team.completedRounds}/5 rounds</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(team.completedRounds / 5) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  {/* Round Choices Summary */}
-                  <div className="grid grid-cols-5 gap-2">
-                    {[1, 2, 3, 4, 5].map(round => (
-                      <div key={round} className="text-center">
-                        <div className="text-xs font-medium text-gray-600 mb-1">R{round}</div>
-                        <div className={`w-8 h-8 mx-auto rounded-full flex items-center justify-center text-xs font-bold ${
-                          team.roundChoices[round]?.choice 
-                            ? 'bg-green-100 text-green-800 border-2 border-green-300' 
-                            : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
-                        }`}>
-                          {team.roundChoices[round]?.choice || '?'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-      
-      <div className="text-center">
-        <button
-          onClick={clearAllTeams}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4"
-          disabled={teams.length === 0}
-        >
-          🗑️ Clear All Teams
-        </button>
-        <div className="mt-4 text-sm text-gray-600">
-          <p>💡 <strong>Multi-Team Instructions:</strong></p>
-          <p>• Each team registers with a unique name and plays independently</p>
-          <p>• All teams can view this dashboard to see everyone's progress</p>
-          <p>• The leaderboard updates in real-time as teams make choices</p>
-          <p>• Up to 100+ teams can play simultaneously!</p>
-          <p>• Use search and filters to manage large groups</p>
-          <p>• Export data as CSV or JSON for analysis</p>
-        </div>
-      </div>
     </div>
-  );
 
-  return (
-    <div className="max-w-6xl mx-auto p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-      <div className="bg-white rounded-lg shadow-xl p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">🛤️ The Privacy Trail</h1>
-          <p className="text-lg text-gray-600 italic">Survive the Trail. Protect the Trust. Avoid Dying of a Data Breach.</p>
-          
-          {/* View Toggle */}
-          <div className="flex justify-center mt-6">
-            <div className="bg-gray-200 p-1 rounded-lg">
-              <button
-                onClick={() => setCurrentView('game')}
-                className={`px-4 py-2 rounded-md font-medium transition-all ${
-                  currentView === 'game'
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                <Gamepad2 className="w-4 h-4 inline mr-2" />
-                Game
-              </button>
-              <button
-                onClick={() => setCurrentView('dashboard')}
-                className={`px-4 py-2 rounded-md font-medium transition-all ${
-                  currentView === 'dashboard'
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4 inline mr-2" />
-                Dashboard ({teams.length})
-              </button>
-            </div>
-          </div>
-        </div>
+    <script>
+        // Game data and state
+        let teams = [];
+        let currentTeam = null;
+        let currentView = 'game';
+        
+        const scenarios = {
+            1: {
+                title: "The Great Data Grab",
+                description: "Your team wants to collect as much user data as possible for future personalization",
+                options: {
+                    A: { label: "Collect Everything", trust: -3, compliance: -3, velocity: +3 },
+                    B: { label: "Collect what you need", trust: +2, compliance: +3, velocity: -1 },
+                    C: { label: "Delay launch for data mapping", trust: +3, compliance: +3, velocity: -3 }
+                }
+            },
+            2: {
+                title: "River of Vendors",
+                description: "Your analytics vendor was fined for shady practices. No DPA signed. Legal is OOO.",
+                options: {
+                    A: { label: "Proceed", trust: -3, compliance: -5, velocity: +2 },
+                    B: { label: "Choose certified vendor", trust: +3, compliance: +4, velocity: -3 },
+                    C: { label: "Wait for legal", trust: -1, compliance: -2, velocity: 0 }
+                }
+            },
+            3: {
+                title: "UX Snakebite",
+                description: "Marketing requests pop-up for birthday, zip code, shopping habits before user sees value",
+                options: {
+                    A: { label: "Ship pop-up now", trust: -4, compliance: -3, velocity: +2 },
+                    B: { label: "Delay collection post-value", trust: +2, compliance: +2, velocity: -1 },
+                    C: { label: "Redesign UX with privacy principles", trust: +3, compliance: +3, velocity: -2 }
+                }
+            },
+            4: {
+                title: "Surveillance Storm",
+                description: "Privacy orgs accuse your product of surveillance. A regulator tweets at you.",
+                options: {
+                    A: { label: "Deny wrongdoing", trust: -5, compliance: -4, velocity: +2 },
+                    B: { label: "Apologize, tweak settings", trust: +1, compliance: +2, velocity: 0 },
+                    C: { label: "Full transparency + opt-outs", trust: +4, compliance: +4, velocity: -2 }
+                }
+            },
+            5: {
+                title: "Global Expansion Canyon",
+                description: "Expanding to EU, LATAM, APAC with different privacy laws. No localized settings.",
+                options: {
+                    A: { label: "Use U.S model globally", trust: -4, compliance: -5, velocity: +3 },
+                    B: { label: "Delay to localize", trust: +3, compliance: +5, velocity: -3 },
+                    C: { label: "Launch in low-regulation markets first", trust: -1, compliance: -2, velocity: +2 }
+                }
+            }
+        };
 
-        {currentView === 'dashboard' ? renderDashboard() : (
-          <>
-            {!isTeamRegistered ? (
-              // Team Registration
-              <div className="mb-8">
-                <label className="block text-lg font-semibold text-gray-700 mb-2">
-                  <Users className="inline w-5 h-5 mr-2" />
-                  Team Name:
-                </label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={teamName}
-                    onChange={(e) => setTeamName(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && registerTeam()}
-                    className="flex-1 p-3 border-2 border-gray-300 rounded-lg text-lg font-medium"
-                    placeholder="Enter your team name..."
-                  />
-                  <button
-                    onClick={register
+        // Initialize the game
+        function init() {
+            loadTeamsFromStorage();
+            setupEventListeners();
+            renderScenarios();
+            updateTeamCount();
+            lucide.createIcons();
+        }
+
+        function setupEventListeners() {
+            // View toggles
+            document.getElementById('gameBtn').addEventListener('click', () => switchView('game'));
+            document.getElementById('dashboardBtn').addEventListener('click', () => switchView('dashboard'));
+            
+            // Team registration
+            document.getElementById('registerBtn').addEventListener('click', registerTeam);
+            document.getElementById('teamNameInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') registerTeam();
+            });
+            document.getElementById('changeTeamBtn').addEventListener('click', changeTeam);
+            document.getElementById('resetBtn').addEventListener('click', resetGame);
+            
+            // Dashboard controls
+            document.getElementById('searchInput').addEventListener('input', updateDashboard);
+            document.getElementById('statusFilter').addEventListener('change', updateDashboard);
+            document.getElementById('sortBy').addEventListener('change', updateDashboard);
+            document.getElementById('exportCSV').addEventListener('click', exportCSV);
+            document.getElementById('exportJSON').addEventListener('click', exportJSON);
+            document.getElementById('clearAllBtn').addEventListener('click', clearAllTeams);
+        }
+
+        function switchView(view) {
+            currentView = view;
+            
+            if (view === 'game') {
+                document.getElementById('gameView').classList.remove('hidden');
+                document.getElementById('dashboardView').classList.add('hidden');
+                document.getElementById('gameBtn').classList.add('bg-blue-500', 'text-white', 'shadow-md');
+                document.getElementById('gameBtn').classList.remove('text-gray-600', 'hover:text-gray-800');
+                document.getElementById('dashboardBtn').classList.remove('bg-blue-500', 'text-white', 'shadow-md');
+                document.getElementById('dashboardBtn').classList.add('text-gray-600', 'hover:text-gray-800');
+            } else {
+                document.getElementById('gameView').classList.add('hidden');
+                document.getElementById('dashboardView').classList.remove('hidden');
+                document.getElementById('dashboardBtn').classList.add('bg-blue-500', 'text-white', 'shadow-md');
+                document.getElementById('dashboardBtn').classList.remove('text-gray-600', 'hover:text-gray-800');
+                document.getElementById('gameBtn').classList.remove('bg-blue-500', 'text-white', 'shadow-md');
+                document.getElementById('gameBtn').classList.add('text-gray-600', 'hover:text-gray-800');
+                updateDashboard();
+            }
+            lucide.createIcons();
+        }
+
+        function registerTeam() {
+            const teamName = document.getElementById('teamNameInput').value.trim();
+            if (!teamName) {
+                alert('Please enter a team name');
+                return;
+            }
+            
+            const existingTeam = teams.find(team => team.name.toLowerCase() === teamName.toLowerCase());
+            if (existingTeam) {
+                const confirmOverwrite = confirm(`Team "${teamName}" already exists. Do you want to continue playing as this team?`);
+                if (!confirmOverwrite) return;
+                currentTeam = existingTeam;
+            } else {
+                currentTeam = {
+                    name: teamName,
+                    scores: { trust: 10, compliance: 10, velocity: 10 },
+                    roundChoices: {
+                        1: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                        2: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                        3: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                        4: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                        5: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' }
+                    },
+                    lastUpdated: new Date().toISOString(),
+                    isGameOver: false,
+                    hasWon: false,
+                    completedRounds: 0
+                };
+                teams.push(currentTeam);
+            }
+            
+            document.getElementById('teamRegistration').classList.add('hidden');
+            document.getElementById('gameContent').classList.remove('hidden');
+            document.getElementById('currentTeamName').textContent = currentTeam.name;
+            updateScores();
+            updateScenarios();
+            saveTeamsToStorage();
+            updateTeamCount();
+        }
+
+        function changeTeam() {
+            currentTeam = null;
+            document.getElementById('teamRegistration').classList.remove('hidden');
+            document.getElementById('gameContent').classList.add('hidden');
+            document.getElementById('teamNameInput').value = '';
+        }
+
+        function resetGame() {
+            if (!currentTeam) return;
+            
+            currentTeam.scores = { trust: 10, compliance: 10, velocity: 10 };
+            currentTeam.roundChoices = {
+                1: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                2: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                3: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                4: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' },
+                5: { choice: '', trust: 0, compliance: 0, velocity: 0, notes: '' }
+            };
+            currentTeam.isGameOver = false;
+            currentTeam.hasWon = false;
+            currentTeam.completedRounds = 0;
+            currentTeam.lastUpdated = new Date().toISOString();
+            
+            updateScores();
+            updateScenarios();
+            saveTeamsToStorage();
+        }
+
+        function renderScenarios() {
+            const scenariosContainer = document.getElementById('scenarios');
+            scenariosContainer.innerHTML = '';
+            
+            Object.entries(scenarios).forEach(([round, scenario]) => {
+                const scenarioDiv = document.createElement('div');
+                scenarioDiv.className = 'bg-gray-100 p-6 rounded-lg shadow-md';
+                scenarioDiv.innerHTML = `
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">Round ${round}: ${scenario.title}</h3>
+                    <p class="text-gray-600 mb-4">${scenario.description}</p>
+                    <div class="space-y-3">
+                        ${Object.entries(scenario.options).map(([option, data]) => `
+                            <label class="flex items-center p-3 bg-white rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
+                                <input type="radio" name="round${round}" value="${option}" class="mr-3" onchange="makeChoice(${round}, '${option}')">
+                                <div class="flex-1">
+                                    <div class="font-medium">${option}. ${data.label}</div>
+                                    <div class="text-sm text-gray-500">
+                                        Trust: ${data.trust > 0 ? '+' : ''}${data.trust}, 
+                                        Compliance: ${data.compliance > 0 ? '+' : ''}${data.compliance}, 
+                                        Velocity: ${data.velocity > 0 ? '+' : ''}${data.velocity}
+                                    </div>
+                                </div>
+                            </label>
+                        `).join('')}
+                    </div>
+                    <div class="mt-4">
+                        <textarea id="notes${round}" placeholder="Team notes for this round..." class="w-full p-2 border border-gray-300 rounded-lg text-sm" rows="2" onchange="updateNotes(${round}, this.value)"></textarea>
+                    </div>
+                `;
+                scenariosContainer.appendChild(scenarioDiv);
+            });
+        }
+
+        function makeChoice(round, choice) {
+            if (!currentTeam) return;
+            
+            const scenario = scenarios[round];
+            const option = scenario.options[choice];
+            
+            currentTeam.roundChoices[round] = {
+                choice,
+                trust: option.trust,
+                compliance: option.compliance,
+                velocity: option.velocity,
+                notes: currentTeam.roundChoices[round].notes || ''
+            };
+            
+            // Recalculate scores
+            currentTeam.scores = { trust: 10, compliance: 10, velocity: 10 };
+            Object.values(currentTeam.roundChoices).forEach(roundChoice => {
+                currentTeam.scores.trust += roundChoice.trust;
+                currentTeam.scores.compliance += roundChoice.compliance;
+                currentTeam.scores.velocity += roundChoice.velocity;
+            });
+            
+            currentTeam.completedRounds = Object.values(currentTeam.roundChoices).filter(r => r.choice !== '').length;
+            currentTeam.isGameOver = currentTeam.scores.trust <= 0 || currentTeam.scores.compliance <= 0 || currentTeam.scores.velocity <= 0;
+            currentTeam.hasWon = currentTeam.scores.trust > 0 && currentTeam.scores.compliance > 0 && currentTeam.scores.velocity > 0 && currentTeam.completedRounds === 5;
+            currentTeam.lastUpdated = new Date().toISOString();
+            
+            updateScores();
+            saveTeamsToStorage();
+            updateTeamCount();
+        }
+
+        function updateNotes(round, notes) {
+            if (!currentTeam) return;
+            currentTeam.roundChoices[round].notes = notes;
+            currentTeam.lastUpdated = new Date().toISOString();
+            saveTeamsToStorage();
+        }
+
+        function updateScores() {
+            if (!currentTeam) return;
+            
+            const scores = currentTeam.scores;
+            
+            // Update score displays
+            document.getElementById('trustScore').textContent = scores.trust;
+            document.getElementById('complianceScore').textContent = scores.compliance;
+            document.getElementById('velocityScore').textContent = scores.velocity;
+            
+            // Update score colors and status
+            updateScoreDisplay('trust', scores.trust);
+            updateScoreDisplay('compliance', scores.compliance);
+            updateScoreDisplay('velocity', scores.velocity);
+            
+            // Update game status
+            const gameStatus = document.getElementById('gameStatus');
+            if (currentTeam.isGameOver) {
+                gameStatus.className = 'mb-6 p-4 rounded-lg text-center font-bold text-lg bg-red-100 text-red-800';
+                gameStatus.textContent = '💀 GAME OVER - One or more scores reached zero!';
+                gameStatus.classList.remove('hidden');
+            } else if (currentTeam.hasWon) {
+                gameStatus.className = 'mb-6 p-4 rounded-lg text-center font-bold text-lg bg-green-100 text-green-800';
+                gameStatus.textContent = '🎉 CONGRATULATIONS! You survived the Privacy Trail!';
+                gameStatus.classList.remove('hidden');
+            } else {
+                gameStatus.classList.add('hidden');
+            }
+        }
+
+        function updateScoreDisplay(scoreType, score) {
+            const scoreElement = document.getElementById(`${scoreType}Score`);
+            const statusElement = document.getElementById(`${scoreType}Status`);
+            
+            if (score <= 0) {
+                scoreElement.className = 'text-3xl font-bold text-red-600';
+                statusElement.textContent = 'DEAD';
+            } else if (score <= 3) {
+                scoreElement.className = 'text-3xl font-bold text-orange-500';
+                statusElement.textContent = 'CRITICAL';
+            } else if (score <= 6) {
+                scoreElement.className = 'text-3xl font-bold text-yellow-500';
+                statusElement.textContent = 'WARNING';
+            } else {
+                scoreElement.className = 'text-3xl font-bold text-green-600';
+                statusElement.textContent = 'HEALTHY';
+            }
+        }
+
+        function updateScenarios() {
+            if (!currentTeam) return;
+            
+            Object.entries(currentTeam.roundChoices).forEach(([round, choice]) => {
+                if (choice.choice) {
+                    const radio = document.querySelector(`input[name="round${round}"][value="${choice.choice}"]`);
+                    if (radio) radio.checked = true;
+                }
+                const notesField = document.getElementById(`notes${round}`);
+                if (notesField) notesField.value = choice.notes || '';
+            });
+        }
+
+        function updateDashboard() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            // Filter teams
+            let filteredTeams = teams.filter(team => {
+                const matchesSearch = team.name.toLowerCase().includes(searchTerm);
+                const matchesStatus = statusFilter === 'all' || 
+                    (statusFilter === 'active' && !team.hasWon && !team.isGameOver) ||
+                    (statusFilter === 'completed' && team.hasWon) ||
+                    (statusFilter === 'failed' && team.isGameOver);
+                return matchesSearch && matchesStatus;
+            });
+            
+            // Sort teams
+            filteredTeams.sort((a, b) => {
+                if (sortBy === 'score') {
+                    if (a.hasWon && !b.hasWon) return -1;
+                    if (!a.hasWon && b.hasWon) return 1;
+                    const aTotalScore = a.scores.trust + a.scores.compliance + a.scores.velocity;
+                    const bTotalScore = b.scores.trust + b.scores.compliance + b.scores.velocity;
+                    if (aTotalScore !== bTotalScore) return bTotalScore - aTotalScore;
+                    return b.completedRounds - a.completedRounds;
+                } else if (
