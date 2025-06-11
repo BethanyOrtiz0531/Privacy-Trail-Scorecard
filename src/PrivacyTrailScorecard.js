@@ -1,3 +1,4 @@
+npm install lucide-react
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Zap, Target, AlertTriangle, CheckCircle, BarChart3, Gamepad2, Trophy, Medal } from 'lucide-react';
 
